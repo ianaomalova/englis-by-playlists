@@ -6,7 +6,7 @@ interface Props {
   onChange: (lessons: Lesson[]) => void;
 }
 
-type Mode = 'cards' | 'sentences';
+type Mode = 'cards' | 'sentences' | 'mistakes';
 type SessionState = 'setup' | 'active' | 'done';
 type CheckResult = 'idle' | 'correct' | 'incorrect';
 
@@ -19,11 +19,16 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+// For mistakes mode we need to know which lesson an item belongs to
+interface QueueItem extends LessonItem {
+  lessonId: string;
+}
+
 export function PracticeView({ lessons, onChange }: Props) {
   const [selectedLessonId, setSelectedLessonId] = useState<string>(lessons[0]?.id ?? '');
   const [mode, setMode] = useState<Mode>('cards');
   const [sessionState, setSessionState] = useState<SessionState>('setup');
-  const [queue, setQueue] = useState<LessonItem[]>([]);
+  const [queue, setQueue] = useState<QueueItem[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [answer, setAnswer] = useState('');
@@ -35,19 +40,30 @@ export function PracticeView({ lessons, onChange }: Props) {
   const selectedLesson = lessons.find(l => l.id === selectedLessonId);
   const cardItems = selectedLesson?.items.filter(i => i.type !== 'sentence') ?? [];
   const sentenceItems = selectedLesson?.items.filter(i => i.type === 'sentence') ?? [];
-  // Only sentences that have a translation can be practiced
   const practicableSentences = sentenceItems.filter(i => i.translation);
   const missingTranslation = sentenceItems.length - practicableSentences.length;
 
+  // All sentences across all lessons that have ≥1 incorrect answer and a translation
+  const mistakeItems: QueueItem[] = lessons.flatMap(l =>
+    l.items
+      .filter(i => i.type === 'sentence' && i.translation && i.stats.incorrect > 0)
+      .map(i => ({ ...i, lessonId: l.id }))
+  );
+
   useEffect(() => {
-    if (sessionState === 'active' && mode === 'sentences' && checkResult === 'idle') {
+    if (sessionState === 'active' && mode !== 'cards' && checkResult === 'idle') {
       inputRef.current?.focus();
     }
   }, [currentIdx, sessionState, checkResult, mode]);
 
+  function getItems(): QueueItem[] {
+    if (mode === 'cards') return cardItems.map(i => ({ ...i, lessonId: selectedLessonId }));
+    if (mode === 'sentences') return practicableSentences.map(i => ({ ...i, lessonId: selectedLessonId }));
+    return mistakeItems;
+  }
+
   function startSession() {
-    if (!selectedLesson) return;
-    const items = mode === 'cards' ? cardItems : practicableSentences;
+    const items = getItems();
     if (items.length === 0) return;
     setQueue(shuffle(items));
     setCurrentIdx(0);
@@ -59,9 +75,9 @@ export function PracticeView({ lessons, onChange }: Props) {
     setSessionState('active');
   }
 
-  function updateItemStats(item: LessonItem, correct: boolean) {
+  function updateItemStats(item: QueueItem, correct: boolean) {
     onChange(lessons.map(l =>
-      l.id === selectedLessonId
+      l.id === item.lessonId
         ? {
             ...l,
             items: l.items.map(i =>
@@ -76,10 +92,7 @@ export function PracticeView({ lessons, onChange }: Props) {
 
   function advance() {
     const next = currentIdx + 1;
-    if (next >= queue.length) {
-      setSessionState('done');
-      return;
-    }
+    if (next >= queue.length) { setSessionState('done'); return; }
     setCurrentIdx(next);
     setRevealed(false);
     setAnswer('');
@@ -88,8 +101,7 @@ export function PracticeView({ lessons, onChange }: Props) {
 
   function markCard(correct: boolean) {
     updateItemStats(queue[currentIdx], correct);
-    if (correct) setSessionCorrect(s => s + 1);
-    else setSessionIncorrect(s => s + 1);
+    if (correct) setSessionCorrect(s => s + 1); else setSessionIncorrect(s => s + 1);
     advance();
   }
 
@@ -97,17 +109,21 @@ export function PracticeView({ lessons, onChange }: Props) {
     const item = queue[currentIdx];
     const correct = answer.trim().toLowerCase() === item.original.trim().toLowerCase();
     updateItemStats(item, correct);
-    if (correct) setSessionCorrect(s => s + 1);
-    else setSessionIncorrect(s => s + 1);
+    if (correct) setSessionCorrect(s => s + 1); else setSessionIncorrect(s => s + 1);
     setCheckResult(correct ? 'correct' : 'incorrect');
   }
 
   const current = queue[currentIdx];
   const total = queue.length;
-  const progress = total > 0 ? Math.round(((currentIdx) / total) * 100) : 0;
+  const progress = total > 0 ? Math.round((currentIdx / total) * 100) : 0;
 
-  // Setup screen
+  // ── Setup ───────────────────────────────────────────
   if (sessionState === 'setup') {
+    const startDisabled =
+      mode === 'cards' ? cardItems.length === 0 :
+      mode === 'sentences' ? practicableSentences.length === 0 :
+      mistakeItems.length === 0;
+
     return (
       <div class="practice-setup">
         <h2>Практика</h2>
@@ -117,37 +133,42 @@ export function PracticeView({ lessons, onChange }: Props) {
           </div>
         ) : (
           <div class="setup-card">
-            <div class="form-row-inline">
-              <label class="form-label">Урок</label>
-              <select
-                class="select select-grow"
-                value={selectedLessonId}
-                onChange={(e) => setSelectedLessonId((e.currentTarget as HTMLSelectElement).value)}
-              >
-                {lessons.map(l => (
-                  <option key={l.id} value={l.id}>{l.name} ({l.items.length})</option>
-                ))}
-              </select>
-            </div>
+            {mode !== 'mistakes' && (
+              <div class="form-row-inline">
+                <label class="form-label">Урок</label>
+                <select
+                  class="select select-grow"
+                  value={selectedLessonId}
+                  onChange={(e) => setSelectedLessonId((e.currentTarget as HTMLSelectElement).value)}
+                >
+                  {lessons.map(l => (
+                    <option key={l.id} value={l.id}>{l.name} ({l.items.length})</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
-            <div class="mode-selector">
-              <button
-                class={`mode-btn ${mode === 'cards' ? 'active' : ''}`}
-                onClick={() => setMode('cards')}
-              >
+            <div class="mode-selector mode-selector-3">
+              <button class={`mode-btn ${mode === 'cards' ? 'active' : ''}`} onClick={() => setMode('cards')}>
                 <span class="mode-icon">🃏</span>
                 <span class="mode-label">Слова и фразы</span>
                 <span class="mode-count">{cardItems.length} элем.</span>
               </button>
-              <button
-                class={`mode-btn ${mode === 'sentences' ? 'active' : ''}`}
-                onClick={() => setMode('sentences')}
-              >
+              <button class={`mode-btn ${mode === 'sentences' ? 'active' : ''}`} onClick={() => setMode('sentences')}>
                 <span class="mode-icon">✍️</span>
                 <span class="mode-label">Предложения</span>
                 <span class="mode-count">
                   {practicableSentences.length} элем.
                   {missingTranslation > 0 && <span class="mode-count-warn"> · {missingTranslation} без пер.</span>}
+                </span>
+              </button>
+              <button class={`mode-btn mode-btn-mistakes ${mode === 'mistakes' ? 'active' : ''}`} onClick={() => setMode('mistakes')}>
+                <span class="mode-icon">🔁</span>
+                <span class="mode-label">Работа над ошибками</span>
+                <span class="mode-count">
+                  {mistakeItems.length > 0
+                    ? <span class="mode-count-warn">{mistakeItems.length} предл.</span>
+                    : 'нет ошибок'}
                 </span>
               </button>
             </div>
@@ -158,36 +179,49 @@ export function PracticeView({ lessons, onChange }: Props) {
               </div>
             )}
 
-            <button
-              class="btn btn-primary btn-large"
-              onClick={startSession}
-              disabled={mode === 'cards' ? cardItems.length === 0 : practicableSentences.length === 0}
-            >
+            {mode === 'mistakes' && mistakeItems.length > 0 && (
+              <div class="mistakes-breakdown">
+                {lessons
+                  .filter(l => l.items.some(i => i.type === 'sentence' && i.translation && i.stats.incorrect > 0))
+                  .map(l => {
+                    const count = l.items.filter(i => i.type === 'sentence' && i.translation && i.stats.incorrect > 0).length;
+                    return (
+                      <div key={l.id} class="mistakes-lesson-row">
+                        <span>{l.name}</span>
+                        <span class="mistakes-count">{count}</span>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+
+            <button class="btn btn-primary btn-large" onClick={startSession} disabled={startDisabled}>
               Начать практику
             </button>
-            {mode === 'cards' && cardItems.length === 0 && (
-              <p class="hint-text">Нет слов и фраз в этом уроке</p>
-            )}
+
+            {mode === 'cards' && cardItems.length === 0 && <p class="hint-text">Нет слов и фраз в этом уроке</p>}
             {mode === 'sentences' && practicableSentences.length === 0 && (
               <p class="hint-text">
                 {sentenceItems.length > 0 ? 'У всех предложений нет перевода — добавьте в «База данных»' : 'Нет предложений в этом уроке'}
               </p>
             )}
+            {mode === 'mistakes' && mistakeItems.length === 0 && <p class="hint-text">Отличная работа — ошибок пока нет!</p>}
           </div>
         )}
       </div>
     );
   }
 
-  // Done screen
+  // ── Done ────────────────────────────────────────────
   if (sessionState === 'done') {
-    const total = sessionCorrect + sessionIncorrect;
-    const acc = total > 0 ? Math.round((sessionCorrect / total) * 100) : 0;
+    const t = sessionCorrect + sessionIncorrect;
+    const acc = t > 0 ? Math.round((sessionCorrect / t) * 100) : 0;
+    const allCorrect = mode === 'mistakes' && sessionIncorrect === 0;
     return (
       <div class="practice-done">
         <div class="done-card">
-          <div class="done-icon">🎉</div>
-          <h2>Сессия завершена!</h2>
+          <div class="done-icon">{allCorrect ? '🏆' : '🎉'}</div>
+          <h2>{allCorrect ? 'Все ошибки исправлены!' : 'Сессия завершена!'}</h2>
           <div class="done-stats">
             <div class="done-stat correct">
               <span class="done-num">{sessionCorrect}</span>
@@ -203,25 +237,23 @@ export function PracticeView({ lessons, onChange }: Props) {
             </div>
           </div>
           <div class="done-actions">
-            <button class="btn btn-secondary" onClick={startSession}>
-              Ещё раз
-            </button>
-            <button class="btn btn-primary" onClick={() => setSessionState('setup')}>
-              Выбрать урок
-            </button>
+            <button class="btn btn-secondary" onClick={startSession}>Ещё раз</button>
+            <button class="btn btn-primary" onClick={() => setSessionState('setup')}>Назад</button>
           </div>
         </div>
       </div>
     );
   }
 
-  // Active session
+  // ── Active session ───────────────────────────────────
+  const lessonName = mode === 'mistakes'
+    ? lessons.find(l => l.id === current?.lessonId)?.name ?? ''
+    : selectedLesson?.name ?? '';
+
   return (
     <div class="practice-active">
       <div class="practice-header">
-        <button class="btn btn-ghost" onClick={() => setSessionState('setup')}>
-          ← Назад
-        </button>
+        <button class="btn btn-ghost" onClick={() => setSessionState('setup')}>← Назад</button>
         <div class="progress-bar-wrap">
           <div class="progress-bar" style={{ width: `${progress}%` }} />
         </div>
@@ -230,12 +262,8 @@ export function PracticeView({ lessons, onChange }: Props) {
 
       {mode === 'cards' && current && (
         <div class="card-practice">
-          <div class="card-lesson-badge">{selectedLesson?.name}</div>
-
-          <div
-            class={`flashcard ${revealed ? 'revealed' : ''}`}
-            onClick={() => !revealed && setRevealed(true)}
-          >
+          <div class="card-lesson-badge">{lessonName}</div>
+          <div class={`flashcard ${revealed ? 'revealed' : ''}`} onClick={() => !revealed && setRevealed(true)}>
             <div class="card-side card-front">
               <span class="card-side-label">Подсказка</span>
               <span class="card-text">{current.translation}</span>
@@ -249,30 +277,30 @@ export function PracticeView({ lessons, onChange }: Props) {
               </span>
             </div>
           </div>
-
           {!revealed ? (
-            <button class="btn btn-secondary btn-large" onClick={() => setRevealed(true)}>
-              Показать ответ
-            </button>
+            <button class="btn btn-secondary btn-large" onClick={() => setRevealed(true)}>Показать ответ</button>
           ) : (
             <div class="card-verdict">
               <p class="verdict-question">Вы знали?</p>
               <div class="verdict-btns">
-                <button class="btn btn-incorrect" onClick={() => markCard(false)}>
-                  ✗ Не знал
-                </button>
-                <button class="btn btn-correct" onClick={() => markCard(true)}>
-                  ✓ Знал!
-                </button>
+                <button class="btn btn-incorrect" onClick={() => markCard(false)}>✗ Не знал</button>
+                <button class="btn btn-correct" onClick={() => markCard(true)}>✓ Знал!</button>
               </div>
             </div>
           )}
         </div>
       )}
 
-      {mode === 'sentences' && current && (
+      {(mode === 'sentences' || mode === 'mistakes') && current && (
         <div class="sentence-practice">
-          <div class="card-lesson-badge">{selectedLesson?.name}</div>
+          <div class="card-lesson-badge">
+            {lessonName}
+            {mode === 'mistakes' && (
+              <span class="mistakes-badge">
+                {' '}· ✗{current.stats.incorrect}
+              </span>
+            )}
+          </div>
 
           <div class="prompt-card">
             <span class="prompt-label">Переведите на язык оригинала:</span>
@@ -297,11 +325,7 @@ export function PracticeView({ lessons, onChange }: Props) {
           </div>
 
           {checkResult === 'idle' && (
-            <button
-              class="btn btn-primary btn-large"
-              onClick={checkSentence}
-              disabled={!answer.trim()}
-            >
+            <button class="btn btn-primary btn-large" onClick={checkSentence} disabled={!answer.trim()}>
               Проверить
             </button>
           )}
