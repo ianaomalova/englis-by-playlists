@@ -107,7 +107,8 @@ export function PracticeView({ lessons, onChange }: Props) {
 
   function checkSentence() {
     const item = queue[currentIdx];
-    const correct = answer.trim().toLowerCase() === item.original.trim().toLowerCase();
+    const normalize = (s: string) => s.trim().replace(/\s+/g, ' ').toLowerCase();
+    const correct = normalize(answer) === normalize(item.original);
     updateItemStats(item, correct);
     if (correct) setSessionCorrect(s => s + 1); else setSessionIncorrect(s => s + 1);
     setCheckResult(correct ? 'correct' : 'incorrect');

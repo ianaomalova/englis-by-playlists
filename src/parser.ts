@@ -8,9 +8,8 @@ function stripBold(text: string): string {
   return text.replace(/\*\*(.+?)\*\*/g, '$1');
 }
 
-// Remove parenthetical notes like (remarks) but keep the main text
 function stripNotes(text: string): string {
-  return text.replace(/\s*\([^)]+\)/g, '').trim();
+  return text.replace(/\s*\([^)]+\)/g, '').replace(/\s+/g, ' ').trim();
 }
 
 function isSentence(text: string): boolean {
@@ -100,7 +99,6 @@ export function parseText(raw: string): ParseResult {
           warnings.push(`Нет перевода: "${cleaned.slice(0, 60)}"`);
         }
       }
-      continue;
     }
   }
 

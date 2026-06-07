@@ -39,10 +39,17 @@ export async function loadData(): Promise<Lesson[]> {
     const tx = db.transaction(STORE, 'readonly');
     const req = tx.objectStore(STORE).getAll();
     req.onsuccess = () => {
+      const normalize = (s: string) => s.replace(/\s+/g, ' ').trim();
       const lessons = (req.result as Lesson[]).map(l => ({
         ...l,
-        // migrate old 'phrase' type → 'word'
-        items: l.items.map(i => i.type === ('phrase' as string) ? { ...i, type: 'word' as const } : i),
+        items: l.items.map(i => ({
+          ...i,
+          // migrate old 'phrase' type → 'word'
+          type: i.type === ('phrase' as string) ? 'word' as const : i.type,
+          // normalize multiple spaces in text fields
+          original: normalize(i.original),
+          translation: normalize(i.translation),
+        })),
       }));
       resolve(lessons);
     };
