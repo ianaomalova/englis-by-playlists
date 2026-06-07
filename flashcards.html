@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bebris Cards</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Unbounded:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f2ed;
+    --surface: #fff;
+    --border: #e0dbd3;
+    --text: #1a1814;
+    --muted: #8c8880;
+    --accent: #2a2420;
+    --green: #2d6a4f;
+    --green-bg: #d8f3dc;
+    --red: #9b2226;
+    --red-bg: #ffe0e0;
+    --tag-bg: #ede9e3;
+    --pill-active: #1a1814;
+    --pill-active-text: #f5f2ed;
+  }
+
+  body {
+    font-family: 'DM Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  header {
+    padding: 1.5rem 1.5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+  }
+
+  header h1 {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  header span {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .stats-row {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .stat {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    text-align: center;
+    border-right: 1px solid var(--border);
+  }
+  .stat:last-child { border-right: none; }
+  .stat .n {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 20px;
+    font-weight: 600;
+    display: block;
+  }
+  .stat .l {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .stat.know .n { color: var(--green); }
+  .stat.learn .n { color: var(--red); }
+
+  nav {
+    display: flex;
+    gap: 0;
+    padding: 1rem 1.5rem 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+
+  .nav-btn {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 0.5rem 1rem 0.75rem;
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: -1px;
+  }
+  .nav-btn.active {
+    color: var(--text);
+    border-bottom-color: var(--text);
+  }
+
+  .view { display: none; padding: 1.5rem; }
+  .view.active { display: block; }
+
+  /* FILTER PILLS */
+  .pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 1.25rem;
+  }
+  .pill {
+    padding: 5px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--muted);
+  }
+  .pill.on {
+    background: var(--pill-active);
+    color: var(--pill-active-text);
+    border-color: var(--pill-active);
+  }
+
+  /* PROGRESS */
+  .progress-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 1.25rem;
+  }
+  .prog-bar {
+    flex: 1;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .prog-fill {
+    height: 100%;
+    background: var(--text);
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+  .prog-label {
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* CARD */
+  .card-wrap {
+    perspective: 800px;
+    margin-bottom: 1rem;
+    cursor: pointer;
+  }
+  .card-inner {
+    position: relative;
+    min-height: 180px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.75rem 1.5rem;
+    transition: box-shadow 0.15s;
+  }
+  .card-inner:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
+
+  .card-meta {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 1rem;
+  }
+  .card-tag {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: var(--tag-bg);
+    color: var(--muted);
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+
+  .card-en {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.4;
+    margin-bottom: 0.5rem;
+  }
+
+  .card-ru {
+    font-size: 16px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    padding-top: 1rem;
+    margin-top: 1rem;
+    display: none;
+    line-height: 1.5;
+  }
+  .card-inner.revealed .card-ru { display: block; }
+
+  .card-hint {
+    font-size: 11px;
+    color: var(--border);
+    text-align: center;
+    margin-top: 0.75rem;
+  }
+  .card-inner.revealed .card-hint { display: none; }
+
+  /* ACTION BUTTONS */
+  .action-btns {
+    display: none;
+    gap: 8px;
+    margin-bottom: 1.5rem;
+  }
+  .action-btns.show { display: flex; }
+  .action-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--text);
+  }
+  .action-btn:hover { opacity: 0.75; }
+  .action-btn.good { background: var(--green-bg); border-color: var(--green); color: var(--green); }
+  .action-btn.bad { background: var(--red-bg); border-color: var(--red); color: var(--red); }
+
+  /* LIST */
+  .list-items { display: flex; flex-direction: column; gap: 6px; }
+  .list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 12px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .li-text .en { font-weight: 500; margin-bottom: 2px; }
+  .li-text .ru { color: var(--muted); }
+  .li-meta { display: flex; gap: 5px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+  .li-tag {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: var(--tag-bg);
+    color: var(--muted);
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .status-dot.know { background: var(--green); }
+  .status-dot.learn { background: var(--red); }
+  .status-dot.new { background: var(--border); }
+
+  /* ADD FORM */
+  .add-form { display: flex; flex-direction: column; gap: 10px; }
+  .add-form select,
+  .add-form textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    resize: vertical;
+  }
+  .add-form textarea { height: 130px; }
+  .add-form select:focus,
+  .add-form textarea:focus { outline: none; border-color: var(--text); }
+  .add-btn {
+    padding: 10px;
+    background: var(--text);
+    color: var(--bg);
+    border: none;
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .add-btn:hover { opacity: 0.85; }
+  .add-note { font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .success-msg { font-size: 13px; color: var(--green); display: none; }
+
+  .done-card {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+  .done-card p { color: var(--muted); font-size: 13px; margin-bottom: 1rem; }
+  .restart-btn {
+    padding: 8px 20px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--text);
+  }
+
+  .selects-row { display: flex; gap: 8px; }
+  .selects-row select { flex: 1; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Bebris Cards</h1>
+  <span id="hdr-lesson">Урок 1</span>
+</header>
+
+<div class="stats-row">
+  <div class="stat"><span class="n" id="s-total">0</span><span class="l">всего</span></div>
+  <div class="stat know"><span class="n" id="s-know">0</span><span class="l">знаю</span></div>
+  <div class="stat learn"><span class="n" id="s-learn">0</span><span class="l">учить</span></div>
+</div>
+
+<nav>
+  <button class="nav-btn active" onclick="switchTab('cards')">Карточки</button>
+  <button class="nav-btn" onclick="switchTab('list')">Список</button>
+  <button class="nav-btn" onclick="switchTab('add')">Добавить</button>
+</nav>
+
+<!-- CARDS TAB -->
+<div class="view active" id="view-cards">
+  <div class="pills" id="filter-pills">
+    <button class="pill on" data-f="all" onclick="setFilter('all')">Все</button>
+    <button class="pill" data-f="words" onclick="setFilter('words')">Слова</button>
+    <button class="pill" data-f="phrases" onclick="setFilter('phrases')">Фразы</button>
+    <button class="pill" data-f="sentences" onclick="setFilter('sentences')">Предложения</button>
+    <button class="pill" data-f="learn" onclick="setFilter('learn')">↺ Учить</button>
+  </div>
+
+  <div class="progress-row">
+    <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+    <span class="prog-label" id="prog-label">0 / 0</span>
+  </div>
+
+  <div id="card-area">
+    <div class="card-wrap" onclick="revealCard()" id="card-wrap">
+      <div class="card-inner" id="card-inner">
+        <div class="card-meta">
+          <span class="card-tag" id="c-lesson">Урок 1</span>
+          <span class="card-tag" id="c-type">слово</span>
+        </div>
+        <div class="card-en" id="c-en">—</div>
+        <div class="card-ru" id="c-ru">—</div>
+        <div class="card-hint">нажми, чтобы увидеть перевод</div>
+      </div>
+    </div>
+    <div class="action-btns" id="action-btns">
+      <button class="action-btn bad" onclick="mark(false)">✕ учить</button>
+      <button class="action-btn" onclick="skip()">пропустить</button>
+      <button class="action-btn good" onclick="mark(true)">✓ знаю</button>
+    </div>
+  </div>
+</div>
+
+<!-- LIST TAB -->
+<div class="view" id="view-list">
+  <div class="pills" id="lfilter-pills">
+    <button class="pill on" data-lf="all" onclick="setLFilter('all')">Все</button>
+    <button class="pill" data-lf="words" onclick="setLFilter('words')">Слова</button>
+    <button class="pill" data-lf="phrases" onclick="setLFilter('phrases')">Фразы</button>
+    <button class="pill" data-lf="sentences" onclick="setLFilter('sentences')">Предложения</button>
+  </div>
+  <div class="list-items" id="list-container"></div>
+</div>
+
+<!-- ADD TAB -->
+<div class="view" id="view-add">
+  <div class="add-form">
+    <p class="add-note">Вставляй по одной строке в формате:<br><strong>английский — русский</strong></p>
+    <div class="selects-row">
+      <select id="add-type">
+        <option value="words">Слово</option>
+        <option value="phrases">Фраза</option>
+        <option value="sentences">Предложение</option>
+      </select>
+      <select id="add-lesson">
+        <option>Урок 1</option>
+        <option>Урок 2</option>
+        <option>Урок 3</option>
+        <option>Урок 4-5</option>
+        <option>Урок 6</option>
+        <option>Урок 7</option>
+        <option>Урок 8</option>
+        <option>Урок 9</option>
+      </select>
+    </div>
+    <textarea id="add-text" placeholder="perfectly — прекрасно&#10;point of view — точка зрения&#10;I perfectly understand you — Я тебя прекрасно понимаю"></textarea>
+    <button class="add-btn" onclick="addItems()">Добавить карточки</button>
+    <span class="success-msg" id="add-ok">Готово!</span>
+  </div>
+</div>
+
+<script>
+const SEED = [
+  {en:"perfectly",ru:"прекрасно",type:"words",lesson:"Урок 1",status:"new"},
+  {en:"pleasant",ru:"приятный",type:"words",lesson:"Урок 1",status:"new"},
+  {en:"matter",ru:"иметь значение",type:"words",lesson:"Урок 1",status:"new"},
+  {en:"point of view",ru:"точка зрения",type:"phrases",lesson:"Урок 1",status:"new"},
+  {en:"from time to time",ru:"время от времени",type:"phrases",lesson:"Урок 1",status:"new"},
+  {en:"in the beginning",ru:"в начале",type:"phrases",lesson:"Урок 1",status:"new"},
+  {en:"work experience",ru:"опыт работы",type:"phrases",lesson:"Урок 1",status:"new"},
+  {en:"first of all",ru:"прежде всего",type:"phrases",lesson:"Урок 1",status:"new"},
+  {en:"it seems to me",ru:"мне кажется",type:"phrases",lesson:"Урок 1",status:"new"},
+  {en:"I perfectly understand you",ru:"Я тебя прекрасно понимаю",type:"sentences",lesson:"Урок 1",status:"new"},
+  {en:"I understand your point of view",ru:"Я понимаю твою точку зрения",type:"sentences",lesson:"Урок 1",status:"new"},
+  {en:"It sometimes happens",ru:"Это иногда случается",type:"sentences",lesson:"Урок 1",status:"new"},
+  {en:"It happens from time to time",ru:"Это случается время от времени",type:"sentences",lesson:"Урок 1",status:"new"},
+  {en:"She works as a shop assistant",ru:"Она работает продавцом",type:"sentences",lesson:"Урок 1",status:"new"},
+  {en:"This thing costs 50 dollars",ru:"Эта вещь стоит 50 долларов",type:"sentences",lesson:"Урок 1",status:"new"},
+  {en:"These mistakes seem unimportant",ru:"Эти ошибки кажутся незначительными",type:"sentences",lesson:"Урок 1",status:"new"},
+  {en:"It really works",ru:"Это правда работает",type:"sentences",lesson:"Урок 1",status:"new"},
+  {en:"I think that it really works",ru:"Я думаю, что это правда работает",type:"sentences",lesson:"Урок 1",status:"new"},
+];
+
+let items = [];
+try { items = JSON.parse(localStorage.getItem('beb2') || 'null') || SEED.map(i=>({...i})); } catch(e) { items = SEED.map(i=>({...i})); }
+
+let filter = 'all';
+let lfilter = 'all';
+let cur = 0;
+let revealed = false;
+let queue = [];
+
+function save() { try { localStorage.setItem('beb2', JSON.stringify(items)); } catch(e){} }
+
+function typeLabel(t) { return {words:'слово',phrases:'фраза',sentences:'предложение'}[t]||t; }
+
+function getFiltered(f) {
+  if(f==='all') return items;
+  if(f==='learn') return items.filter(i=>i.status==='learn');
+  return items.filter(i=>i.type===f);
+}
+
+function shuffle(a) {
+  const b = [...a];
+  for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}
+  return b;
+}
+
+function updateStats() {
+  document.getElementById('s-total').textContent = items.length;
+  document.getElementById('s-know').textContent = items.filter(i=>i.status==='know').length;
+  document.getElementById('s-learn').textContent = items.filter(i=>i.status==='learn').length;
+}
+
+function showCard() {
+  revealed = false;
+  const ci = document.getElementById('card-inner');
+  ci.classList.remove('revealed');
+  document.getElementById('action-btns').classList.remove('show');
+
+  const filtered = getFiltered(filter);
+  if(!filtered.length || cur >= filtered.length) {
+    if(filtered.length && cur >= filtered.length) {
+      document.getElementById('card-area').innerHTML = `
+        <div class="done-card">
+          <p>Раунд завершён! ${filtered.filter(i=>i.status==='know').length} из ${filtered.length} знаешь.</p>
+          <button class="restart-btn" onclick="restartRound()">Начать заново</button>
+        </div>`;
+    }
+    return;
+  }
+  const item = filtered[cur];
+  document.getElementById('c-en').textContent = item.en;
+  document.getElementById('c-ru').textContent = item.ru;
+  document.getElementById('c-type').textContent = typeLabel(item.type);
+  document.getElementById('c-lesson').textContent = item.lesson;
+  const pct = filtered.length ? Math.round((cur / filtered.length) * 100) : 0;
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('prog-label').textContent = (cur+1) + ' / ' + filtered.length;
+}
+
+function revealCard() {
+  if(revealed) return;
+  revealed = true;
+  document.getElementById('card-inner').classList.add('revealed');
+  document.getElementById('action-btns').classList.add('show');
+}
+
+function mark(know) {
+  const filtered = getFiltered(filter);
+  if(!filtered.length || cur >= filtered.length) return;
+  const item = filtered[cur];
+  const idx = items.indexOf(item);
+  if(idx > -1) items[idx].status = know ? 'know' : 'learn';
+  save();
+  updateStats();
+  cur++;
+  showCard();
+}
+
+function skip() { cur++; showCard(); }
+
+function restartRound() {
+  document.getElementById('card-area').innerHTML = `
+    <div class="card-wrap" onclick="revealCard()" id="card-wrap">
+      <div class="card-inner" id="card-inner">
+        <div class="card-meta">
+          <span class="card-tag" id="c-lesson">Урок 1</span>
+          <span class="card-tag" id="c-type">слово</span>
+        </div>
+        <div class="card-en" id="c-en">—</div>
+        <div class="card-ru" id="c-ru">—</div>
+        <div class="card-hint">нажми, чтобы увидеть перевод</div>
+      </div>
+    </div>
+    <div class="action-btns" id="action-btns">
+      <button class="action-btn bad" onclick="mark(false)">✕ учить</button>
+      <button class="action-btn" onclick="skip()">пропустить</button>
+      <button class="action-btn good" onclick="mark(true)">✓ знаю</button>
+    </div>`;
+  cur = 0;
+  showCard();
+}
+
+function setFilter(f) {
+  filter = f;
+  cur = 0;
+  document.querySelectorAll('#filter-pills .pill').forEach(p => {
+    p.classList.toggle('on', p.dataset.f === f);
+  });
+  restartRound();
+}
+
+function setLFilter(f) {
+  lfilter = f;
+  document.querySelectorAll('#lfilter-pills .pill').forEach(p => {
+    p.classList.toggle('on', p.dataset.lf === f);
+  });
+  renderList();
+}
+
+function renderList() {
+  const data = lfilter==='all' ? items : items.filter(i=>i.type===lfilter);
+  document.getElementById('list-container').innerHTML = data.map(item => `
+    <div class="list-item">
+      <div class="li-text">
+        <div class="en">${item.en}</div>
+        <div class="ru">${item.ru}</div>
+      </div>
+      <div class="li-meta">
+        <span class="li-tag">${item.lesson}</span>
+        <span class="li-tag">${typeLabel(item.type)}</span>
+        <span class="status-dot ${item.status||'new'}"></span>
+      </div>
+    </div>`).join('');
+}
+
+function addItems() {
+  const raw = document.getElementById('add-text').value.trim();
+  const type = document.getElementById('add-type').value;
+  const lesson = document.getElementById('add-lesson').value;
+  if(!raw) return;
+  let added = 0;
+  raw.split('\n').forEach(line => {
+    const parts = line.split('—').map(s=>s.trim());
+    if(parts.length >= 2 && parts[0] && parts[1]) {
+      items.push({en:parts[0], ru:parts[1], type, lesson, status:'new'});
+      added++;
+    }
+  });
+  save();
+  updateStats();
+  document.getElementById('add-text').value = '';
+  const msg = document.getElementById('add-ok');
+  msg.textContent = `Добавлено ${added} карточек!`;
+  msg.style.display = 'block';
+  setTimeout(() => msg.style.display='none', 2500);
+}
+
+function switchTab(t) {
+  ['cards','list','add'].forEach(x => {
+    document.getElementById('view-'+x).classList.toggle('active', x===t);
+  });
+  document.querySelectorAll('nav .nav-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', ['cards','list','add'][i]===t);
+  });
+  if(t==='list') renderList();
+}
+
+updateStats();
+showCard();
+</script>
+</body>
+</html>
