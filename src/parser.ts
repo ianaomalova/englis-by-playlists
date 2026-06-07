@@ -1,15 +1,24 @@
 import type { Lesson, LessonItem } from './types';
 import { genId } from './store';
 
-// Pronouns/determiners that signal a line is a sentence, not a phrase
 const SENTENCE_START = /^(I|He|She|They|We|It|You|This|These|That|Those|The|My|His|Her|Their|Our|Your|All|Such)\s/i;
 
 function stripBold(text: string): string {
   return text.replace(/\*\*(.+?)\*\*/g, '$1');
 }
 
+// Normalize fancy/curly quotes to straight ASCII equivalents
+function normQuotes(text: string): string {
+  return text
+    .replace(/[‘’‚‛ʼ]/g, "'")
+    .replace(/[“”„‟]/g, '"');
+}
+
 function stripNotes(text: string): string {
-  return text.replace(/\s*\([^)]+\)/g, '').replace(/\s+/g, ' ').trim();
+  return normQuotes(text)
+    .replace(/\s*\([^)]+\)/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function isSentence(text: string): boolean {
@@ -40,7 +49,7 @@ export function parseText(raw: string): ParseResult {
   const lines = raw.split('\n').map(l => stripBold(l.trim())).filter(Boolean);
 
   for (const line of lines) {
-    // ── Lesson header ─────────────────────────────────
+    // Lesson header: # Урок N
     if (line.startsWith('#')) {
       const name = line.replace(/^#+\s*/, '').trim();
       current = { id: genId(), name, createdAt: Date.now(), items: [] };
@@ -50,59 +59,48 @@ export function parseText(raw: string): ParseResult {
 
     if (!current) continue;
 
-    // ── Numbered sentence: "1. text" or "1. text - перевод" ──
+    // Numbered sentence: "1. text" or "1. text - перевод"
     const numbered = line.match(/^\d+[.)]\s+(.+)/);
     if (numbered) {
-      let text = numbered[1].trim();
-
-      // Check if right side after " - " contains Cyrillic (explicit translation)
-      const cyrDash = text.search(/\s+[-–]\s+[Ѐ-ӿ]/);
+      const text = numbered[1].trim();
+      const cyrDash = text.search(/\s+[-–—]\s+[Ѐ-ӿ]/);
       let original: string;
       let translation = '';
 
       if (cyrDash !== -1) {
         original = stripNotes(text.slice(0, cyrDash));
-        translation = stripNotes(text.slice(cyrDash).replace(/^\s*[-–]\s*/, ''));
+        translation = stripNotes(text.slice(cyrDash).replace(/^\s*[-–—]\s*/, ''));
       } else {
         original = stripNotes(text);
       }
 
-      if (original) {
-        current.items.push(makeItem('sentence', original, translation));
-      }
+      if (original) current.items.push(makeItem('sentence', original, translation));
       continue;
     }
 
-    // ── Line with "english - русский" dash pattern ───
-    // Only split on dash when right side starts with Cyrillic
-    const dashMatch = line.match(/^(.+?)\s+[-–]\s+([Ѐ-ӿ].+)$/);
+    // "english - русский" pattern (dash only when right side is Cyrillic)
+    const dashMatch = line.match(/^(.+?)\s+[-–—]\s+([Ѐ-ӿ].+)$/);
     if (dashMatch) {
       const left = dashMatch[1].trim();
       const right = dashMatch[2].trim();
-
       if (isSentence(left)) {
         current.items.push(makeItem('sentence', stripNotes(left), stripNotes(right)));
       } else {
-        current.items.push(makeItem('word', left, right));
+        current.items.push(makeItem('word', normQuotes(left), normQuotes(right)));
       }
       continue;
     }
 
-    // ── Plain English sentence (no number, no dash) ──
-    // Must look like a sentence: ≥ 4 words, starts with capital letter
+    // Plain English sentence (no number, no dash): ≥4 words, capital letter
     const wordCount = line.split(/\s+/).length;
     if (wordCount >= 4 && /^[A-Z]/.test(line) && !line.includes(':')) {
       const cleaned = stripNotes(line);
       if (cleaned) {
         current.items.push(makeItem('sentence', cleaned, ''));
-        if (!SENTENCE_START.test(cleaned)) {
-          warnings.push(`Нет перевода: "${cleaned.slice(0, 60)}"`);
-        }
       }
     }
   }
 
-  // Warn about sentences with no translation
   for (const lesson of lessons) {
     const missing = lesson.items.filter(i => i.type === 'sentence' && !i.translation).length;
     if (missing > 0) {
