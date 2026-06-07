@@ -10,8 +10,8 @@ function stripBold(text: string): string {
 // Normalize fancy/curly quotes to straight ASCII equivalents
 function normQuotes(text: string): string {
   return text
-    .replace(/[‘’‚‛ʼ]/g, "'")
-    .replace(/[“”„‟]/g, '"');
+    .replace(/[\u2018\u2019\u201A\u201B\u02BC]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F]/g, '"');
 }
 
 function stripNotes(text: string): string {

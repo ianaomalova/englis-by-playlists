@@ -107,10 +107,12 @@ export function PracticeView({ lessons, onChange }: Props) {
 
   function checkSentence() {
     const item = queue[currentIdx];
-    const APOS = /[‘’‚‛ʼ]/g;
-    const QUOT = /[“”„‟]/g;
     const normalize = (s: string) =>
-      s.trim().replace(/\s+/g, ‘ ‘).replace(APOS, “’”).replace(QUOT, ‘”’).toLowerCase();
+      s.trim()
+       .replace(/\s+/g, ' ')
+       .replace(/[\u2018\u2019\u201A\u201B\u02BC]/g, "'")
+       .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+       .toLowerCase();
     const correct = normalize(answer) === normalize(item.original);
     updateItemStats(item, correct);
     if (correct) setSessionCorrect(s => s + 1); else setSessionIncorrect(s => s + 1);

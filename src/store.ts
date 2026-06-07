@@ -39,8 +39,8 @@ export async function loadData(): Promise<Lesson[]> {
     const tx = db.transaction(STORE, 'readonly');
     const req = tx.objectStore(STORE).getAll();
     req.onsuccess = () => {
-      const APOS = /[‘’‚‛ʼ]/g;
-      const QUOT = /[“”„‟]/g;
+      const APOS = /[\u2018\u2019\u201A\u201B\u02BC]/g;
+      const QUOT = /[\u201C\u201D\u201E\u201F]/g;
       const normalize = (s: string) =>
         s.replace(APOS, "'").replace(QUOT, '"').replace(/\s+/g, ' ').trim();
       const lessons = (req.result as Lesson[]).map(l => ({
