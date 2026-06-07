@@ -43,10 +43,10 @@ export function PracticeView({ lessons, onChange }: Props) {
   const practicableSentences = sentenceItems.filter(i => i.translation);
   const missingTranslation = sentenceItems.length - practicableSentences.length;
 
-  // All sentences across all lessons that have ≥1 incorrect answer and a translation
+  // Sentences where incorrect answers still outnumber correct ones
   const mistakeItems: QueueItem[] = lessons.flatMap(l =>
     l.items
-      .filter(i => i.type === 'sentence' && i.translation && i.stats.incorrect > 0)
+      .filter(i => i.type === 'sentence' && i.translation && i.stats.incorrect > i.stats.correct)
       .map(i => ({ ...i, lessonId: l.id }))
   );
 
